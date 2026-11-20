@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prácticas de Packet Tracer — Subneteo y DHCP</title>
+  <style>
+    :root { --bg:#f4f7fb; --card:#fff; --text:#102033; --muted:#5a6b80; --border:#d7e0ec; --primary:#0d5ca8; --bad:#dc2626; }
+    [data-theme="dark"] { --bg:#0a111f; --card:#131e33; --text:#eef4fb; --muted:#97abc5; --border:#253755; --primary:#55a8ff; --bad:#f87171; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); transition:background .2s,color .2s; }
+    .wrap { max-width:980px; margin:0 auto; padding:22px 16px 60px; }
+    .top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-bottom:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+    input, button { font:inherit; padding:9px 11px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); min-width:0; }
+    button { cursor:pointer; font-weight:600; }
+    .btn-primary { background:var(--primary); color:#fff; border-color:transparent; }
+    .kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-top:12px; }
+    .box { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+    .box small { display:block; color:var(--muted); font-size:12px; }
+    pre { background:#0b1322; color:#d7e8ff; padding:14px; border-radius:10px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0;">🌐 Packet Tracer — Subneteo IPv4 y DHCP</h1>
+        <div style="color:var(--muted);font-size:14px;">Herramienta de apoyo para las topologías <code>.pkt</code> y la práctica DHCP del repositorio</div>
+      </div>
+      <button type="button" id="themeBtn">🌙 Oscuro</button>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <input id="ip" value="192.168.10.0" aria-label="Red IPv4" />
+        <input id="prefix" type="number" min="0" max="32" value="24" aria-label="Prefijo CIDR" />
+        <input id="pool" value="DHCP_TELEINFO1" aria-label="Nombre del pool DHCP" />
+        <input id="dns" value="8.8.8.8" aria-label="Servidor DNS" />
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" id="saveBtn" class="btn-primary">💾 Guardar en historial</button>
+        <button type="button" id="copyBtn">📋 Copiar CLI</button>
+      </div>
+      <div id="kpi" class="kpi" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">CLI Cisco IOS — Servidor DHCP</h3>
+      <pre id="cli"></pre>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">Subredes guardadas</h3>
+        <button type="button" id="clearBtn">Vaciar</button>
+      </div>
+      <div id="hist" style="font-size:14px;color:var(--muted);margin-top:10px;"></div>
+    </div>
+  </div>
+  <script src="./subnet-dhcp.js"></script>
+  <script>
+    (function () {
+      var T = window.PacketTracerTools, KEY = 'pt_subnet_hist_v1', TKEY = 'pt_theme';
+      function $(id) { return document.getElementById(id); }
+      var hist = [];
+      try { hist = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+      function persist() { try { localStorage.setItem(KEY, JSON.stringify(hist)); } catch (e) {} }
+      function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem(TKEY, t); } catch (e) {} $('themeBtn').textContent = t === 'dark' ? '☀️ Claro' : '🌙 Oscuro'; }
+      setTheme(localStorage.getItem(TKEY) === 'dark' ? 'dark' : 'light');
+      $('themeBtn').addEventListener('click', function () { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); });
+
+      var last = null;
+      function run() {
+        last = T.generateCiscoDhcp({ networkIp: $('ip').value, prefix: $('prefix').value, poolName: $('pool').value, dns: $('dns').value });
+        if (!last.ok) { $('kpi').innerHTML = '<div class="box" style="color:var(--bad);">' + last.error + '</div>'; $('cli').textContent = ''; return; }
+        var s = last.subnet;
+        $('kpi').innerHTML =
+          '<div class="box"><small>Red CIDR</small><strong>' + s.cidr + '</strong></div>' +
+          '<div class="box"><small>Máscara / Wildcard</small><strong>' + s.mask + '</strong><br><small>' + s.wildcard + '</small></div>' +
+          '<div class="box"><small>Rango usable</small><strong>' + s.firstHost + ' – ' + s.lastHost + '</strong></div>' +
+          '<div class="box"><small>Broadcast</small><strong>' + s.broadcast + '</strong><br><small>' + s.usableHosts + ' hosts útiles</small></div>';
+        $('cli').textContent = last.cli;
+      }
+      function renderHist() {
+        $('hist').innerHTML = hist.length
+          ? hist.map(function (h) { return '<div style="padding:6px 0;border-bottom:1px solid var(--border);"><strong>' + h.cidr + '</strong> · ' + h.mask + ' · ' + h.firstHost + ' – ' + h.lastHost + ' (' + h.usableHosts + ' hosts)</div>'; }).join('')
+          : 'Aún no hay subredes guardadas.';
+      }
+      ['ip', 'prefix', 'pool', 'dns'].forEach(function (id) { $(id).addEventListener('input', run); });
+      $('saveBtn').addEventListener('click', function () {
+        if (last && last.ok) { hist.unshift(last.subnet); hist = hist.slice(0, 12); persist(); renderHist(); }
+      });
+      $('clearBtn').addEventListener('click', function () { hist = []; persist(); renderHist(); });
+      $('copyBtn').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText($('cli').textContent); });
+      run(); renderHist();
+    })();
+  </script>
+</body>
+</html>

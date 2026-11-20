@@ -17,3 +17,11 @@ Puedes abrir este repositorio en VS Code, Antigravity o Sublime Text. El compila
 
 Abre los archivos `.pkt` o `.pka` con Cisco Packet Tracer. Son topologías o actividades de red; su validación se realiza dentro del simulador, probando conectividad y configuración.
 <!-- platform-tools:end -->
+
+
+<!-- improvements-20261120:start -->
+## Mejoras y verificación — 2026-11-20 (Calculadora IPv4 CIDR y generador de servidor DHCP Cisco)
+
+- **Cambios:** Añadida herramienta interactiva (`web-tools/index.html` + `web-tools/subnet-dhcp.js`) alineada con las 12 topologías `.pkt` y práctica DHCP del repositorio, con cálculo de red/máscara/wildcard/broadcast, historial en `localStorage`, tema claro/oscuro y generación CLI Cisco IOS.
+- **Validación:** Node 24 `node --test web-tools/tests/subnet-dhcp.test.mjs` (3/3 pruebas aprobadas).
+<!-- improvements-20261120:end -->
